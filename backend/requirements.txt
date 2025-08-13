@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+playwright
+aiohttp
+pydantic
+python-dotenv
+requests
+beautifulsoup4
+sqlalchemy
+asyncpg
+psycopg2-binary
+python-jose[cryptography]
+passlib[bcrypt]  
+python-multipart

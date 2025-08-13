@@ -1,0 +1,48 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Python environment & secrets
+.env
+*.env
+
+# Logs
+*.log
+logs/
+
+# Byte-compiled / optimized / DLL files
+*.so
+
+# Test cache
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VS Code & editor settings
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Local development files
+*.local

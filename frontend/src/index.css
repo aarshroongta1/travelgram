@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+
+/* Background montage */
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  12.5% { opacity: 1; }
+  87.5% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.text-shadow {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.text-shadow-lg {
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes ken-burns {
+  0% { transform: scale(1.1) translate(0, 0); }
+  100% { transform: scale(1.2) translate(-2%, -2%); }
+}
+
+@keyframes slide-in {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
