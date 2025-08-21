@@ -10,8 +10,13 @@ export interface Reel {
   caption: string;
 }
 
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
+});
+
 export const getExisting = async (city: string) => {
-  const response = await axios.get("/api/existing/" + city);
+  const response = await api.get("/api/existing/" + city);
   return response.data as Record<string, Reel[]>;
 };
 
@@ -21,7 +26,7 @@ export const fetchCategory = async (
   num: number = 6,
   signal?: AbortSignal
 ) => {
-  const response = await axios.get("/api/search", {
+  const response = await api.get("/api/search", {
     params: { city, category, num },
     signal,
   });
@@ -29,7 +34,7 @@ export const fetchCategory = async (
 };
 
 export const fetchAll = async (city: string, signal?: AbortSignal) => {
-  const response = await axios.get("/api/search/all", {
+  const response = await api.get("/api/search/all", {
     params: { city },
     signal,
   });
@@ -37,45 +42,28 @@ export const fetchAll = async (city: string, signal?: AbortSignal) => {
 };
 
 export const saveReel = async (reelId: number) => {
-  await axios.post(
-    "/api/save",
-    {},
-    {
-      params: { reel_id: reelId },
-      withCredentials: true,
-    }
-  );
-  return;
+  await api.post("/api/save", {}, { params: { reel_id: reelId } });
 };
 
 export const unsaveReel = async (reelId: number) => {
-  await axios.post(
-    "/api/unsave",
-    {},
-    {
-      params: { reel_id: reelId },
-      withCredentials: true,
-    }
-  );
-  return;
+  await api.post("/api/unsave", {}, { params: { reel_id: reelId } });
 };
 
 export const getSavedReels = async () => {
-  const res = await axios.get("/api/saved", {
-    withCredentials: true,
-  });
+  const res = await api.get("/api/saved");
   return res.data as Reel[];
 };
 
-export const isSaved = async(reelId: number) => {
-  const res = await axios.get("/api/check-saved", {
-    params: {reel_id: reelId},
-    withCredentials: true
-  })
-  return Boolean(res.data.saved)
-}
+export const isSaved = async (reelId: number) => {
+  const res = await api.get("/api/check-saved", {
+    params: { reel_id: reelId },
+  });
+  return Boolean(res.data.saved);
+};
 
-export const getSavedReelsByCity = async (): Promise<Record<string, Reel[]>> => {
+export const getSavedReelsByCity = async (): Promise<
+  Record<string, Reel[]>
+> => {
   const all = await getSavedReels();
   return all.reduce((acc, reel) => {
     acc[reel.city] = acc[reel.city] || [];
