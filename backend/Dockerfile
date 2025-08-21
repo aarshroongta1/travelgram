@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     poppler-utils \
     libgl1 \
@@ -37,6 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN playwright install chromium
 
+# Fonts for Chromium
 RUN apt-get update && apt-get install -y \
     fonts-liberation \
     fonts-dejavu-core \
@@ -46,6 +48,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY . .
 
+# Start script with dynamic $PORT
 RUN echo '#!/bin/bash\n\
 set -e\n\
 cleanup() {\n\
@@ -66,7 +69,7 @@ export DISPLAY=:99\n\
 if ! xdpyinfo -display :99 >/dev/null 2>&1; then\n\
     exit 1\n\
 fi\n\
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level warning' > /start.sh
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level warning' > /start.sh
 
 RUN chmod +x /start.sh
 
