@@ -21,7 +21,7 @@ Whether you’re looking for hidden gems, must-see attractions or travel tips, T
 ### Autocomplete city search
 Search box with autocomplete suggestions that includes all cities in the world.
 - The list of cities that start with a prefix is fetched from the [GeoDB Cities API](https://rapidapi.com/wirefreethought/api/geodb-cities).
-- The query parameter ``sort=-population`` sorts the cities in descending order of population to show the more prominent places first.
+- The query parameter ``sort=-population`` sorts the cities in descending order of population to show the more popular destinations first.
 - Suggestions are limited to 5 options and shown only when the user has typed 3 or more characters for rate-limiting.
 
 ### Reels by category
