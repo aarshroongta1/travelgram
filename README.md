@@ -1,6 +1,8 @@
 # Travelgram
 Everything you need for your next trip, captured in reels.
 
+![landing](landing.png)
+
 ## About
 
 Travelgram transforms trip planning by organizing scattered travel content on Instagram Reels. Replace long articles and random posts with quick Reels sorted into categories like food, nightlife, things to do, adventure and culture that bring every destination to life.
