@@ -28,7 +28,7 @@ def decode_bing_url(bing_url: str) -> str:
 
 async def setup_browser(p):
     browser = await p.chromium.launch(
-        headless=True,
+        headless=False,
         args=[
             '--no-sandbox',
             '--disable-blink-features=AutomationControlled',
