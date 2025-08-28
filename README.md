@@ -26,6 +26,8 @@ Search box with autocomplete suggestions that includes all cities in the world.
 - The query parameter ``sort=-population`` sorts the cities in descending order of population to show the more popular destinations first.
 - Suggestions are limited to 5 options and shown only when the user has typed 3 or more characters for rate-limiting.
 
+![autocomplete](autocomplete.png)
+
 ### Reels by category
 What makes Travelgram more accessible than a regular Google or Instagram search is the feature of getting reels by categories, which makes it easy for you to plan your itinerary.
 - As soon as the search is made, all the reels saved in the database for that city are returned immediately.
@@ -34,10 +36,14 @@ What makes Travelgram more accessible than a regular Google or Instagram search 
   - **Tab Switch:** If the current category has fewer than 12 reels (~2 rows on desktop), 6 more reels are fetched to fill the grid.
   - **Infinite Scroll:** A marker at the bottom of the grid is tracked as the user scrolls. When it comes into view, more reels are automatically fetched and appended until the backend indicates that no new results are available.
 - If the user switches tabs between a request, the request for the previous category is aborted and priority is given to fetching results for the new category.
+
+![results-by-category](results.png)
   
 ### Saved collections
 - The reel cards displayed have a save button, which saves the reel into the user’s collection.
 - User can view all the reels they have saved by city and category, making it ideal to come back for reference while planning their trips.
+
+![saved](saved.png)
 
 ## Collecting Reels Data
 - Playwright is used to launch a browser to make dynamic search queries on Bing for reels in each category.
