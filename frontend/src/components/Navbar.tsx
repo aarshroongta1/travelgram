@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@headlessui/react";
 
 export default function Navbar() {
-  const { isAuthenticated, email, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -29,7 +29,7 @@ export default function Navbar() {
 
               <MenuItems className="absolute right-0 z-10 mt-2 w-64 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0">
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900">{email}</p>
+                  <p className="text-sm font-medium text-gray-900">{user?.email}</p>
                 </div>
 
                 <div className="py-1">
