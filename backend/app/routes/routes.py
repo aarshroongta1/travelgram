@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.data import get_instagram_reels
 from app.schemas.reel import ReelOut
-from app.models.document import Reel, Pages, User, SavedReel
+from app.models.document import Reel, Pages, SavedReel
 from app.crud.crud import add_reel_to_db, add_page_to_db
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from typing import List, Dict
-from app.auth.auth import get_current_user
+from app.auth.supabase import get_current_user
 
 router = APIRouter()
+
 
 @router.get("/existing/{city}", response_model=Dict[str, List[ReelOut]])
 async def get_existing(city: str, db: Session = Depends(get_db)):
@@ -49,7 +50,7 @@ async def get_results(city: str, category: str, num: int = 6, db: Session = Depe
     add_page_to_db(db, city=city, category=category, start_page=next_page)
     ret[category] = [ReelOut.from_orm(r) for r in saved]
     return ret
-    
+
 
 @router.get("/search/all", response_model=Dict[str, List[ReelOut]])
 async def get_all(city: str, db: Session = Depends(get_db)):
@@ -81,23 +82,27 @@ async def get_all(city: str, db: Session = Depends(get_db)):
 
 
 @router.post("/save")
-def save_reel(reel_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    exists = db.query(SavedReel).filter_by(user_id=user.id, reel_id=reel_id).first()
+def save_reel(reel_id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    exists = db.query(SavedReel).filter_by(user_id=user_id, reel_id=reel_id).first()
     if exists:
         raise HTTPException(status_code=400, detail="Already saved")
-    db.add(SavedReel(user_id=user.id, reel_id=reel_id))
+    db.add(SavedReel(user_id=user_id, reel_id=reel_id))
     db.commit()
+
 
 @router.post("/unsave")
-def unsave_reel(reel_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    db.query(SavedReel).filter_by(user_id=user.id, reel_id=reel_id).delete()
+def unsave_reel(reel_id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(SavedReel).filter_by(user_id=user_id, reel_id=reel_id).delete()
     db.commit()
 
-@router.get("/saved", response_model=List[ReelOut])
-def get_saved_reels(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return [s.reel for s in user.saved_reels]
 
-@router.post("/check-saved")
-def check_saved(reel_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    existing = db.query(SavedReel).filter_by(user_id=user.id, reel_id=reel_id).first()
-    return { "saved": bool(existing) }
+@router.get("/saved", response_model=List[ReelOut])
+def get_saved_reels(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    saved = db.query(SavedReel).filter_by(user_id=user_id).all()
+    return [s.reel for s in saved]
+
+
+@router.get("/check-saved")
+def check_saved(reel_id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    existing = db.query(SavedReel).filter_by(user_id=user_id, reel_id=reel_id).first()
+    return {"saved": bool(existing)}

@@ -6,7 +6,7 @@ from app.schemas.reel import NewReel
 
 async def setup_browser(p):
     browser = await p.chromium.launch(
-        headless=False,
+        headless=True,
         args=[
             '--no-sandbox',
             '--disable-blink-features=AutomationControlled',
