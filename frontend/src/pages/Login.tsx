@@ -6,7 +6,7 @@ const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
   const toggleMode = () => setIsLogin(!isLogin);
@@ -32,18 +32,13 @@ const Login = () => {
         showMessage("Logged in successfully!", "success");
         navigate("/");
       } else {
-        await fetch("/api/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: email, password }),
-        });
-
-        await login(email, password);
-        showMessage("Signed up successfully!", "success");
+        await signup(email, password);
+        showMessage("Signed up successfully! Check your email to confirm.", "success");
         navigate("/");
       }
     } catch (err: any) {
-      showMessage("Login or sign-up failed. Please try again.", "error");
+      const message = err?.message || "Login or sign-up failed. Please try again.";
+      showMessage(message, "error");
     }
   };
 
