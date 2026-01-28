@@ -7,7 +7,7 @@ services:
     container_name: frontend
     ports:
       - "80:80"
-      - "443:443"   # for HTTPS later
+      - "443:443"
     depends_on:
       - backend
     volumes:
@@ -22,21 +22,5 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-    depends_on:
-      - db
     env_file:
       - ./backend/.env
-
-  db:
-    image: postgres:15
-    container_name: db
-    restart: always
-    environment:
-      POSTGRES_USER: Aarsh
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: travelgram
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
