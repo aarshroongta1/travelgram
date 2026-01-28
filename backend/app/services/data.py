@@ -1,30 +1,8 @@
 import asyncio
-import base64
-import urllib.parse
-import random
 from playwright.async_api import async_playwright
-from typing import Set, List
+from typing import Set
 from app.services.metadata import main as get_data
 from app.schemas.reel import NewReel
-
-def decode_bing_url(bing_url: str) -> str:
-    try:
-        parsed = urllib.parse.urlparse(bing_url)
-        params = urllib.parse.parse_qs(parsed.query)
-        if 'u' in params:
-            encoded_url = params['u'][0]
-            if encoded_url.startswith('a1'):
-                encoded_url = encoded_url[2:]
-            missing_padding = len(encoded_url) % 4
-            if missing_padding:
-                encoded_url += '=' * (4 - missing_padding)
-            try:
-                return base64.b64decode(encoded_url).decode('utf-8')
-            except:
-                return urllib.parse.unquote(encoded_url)
-        return bing_url
-    except:
-        return bing_url
 
 async def setup_browser(p):
     browser = await p.chromium.launch(
@@ -70,23 +48,23 @@ async def setup_browser(p):
 
 
 async def type_search_query(page, text):
-    element = page.locator("textarea#sb_form_q")
+    element = page.locator("input[name='q']")
     await element.click()
     for char in text:
         await element.type(char)
     await page.keyboard.press("Enter")
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(1)
 
-async def go_to_page(page, target_page, current_page):
-    while current_page < target_page:
-        next_button = page.locator("a.sb_pagN")
-        if not next_button or await next_button.count() == 0:
-            return current_page
-        await next_button.first.scroll_into_view_if_needed()
-        await next_button.first.click()
-        await page.wait_for_selector("li.b_algo", timeout=10000)
-        current_page += 1
-    return current_page
+async def load_more_results(page, times: int = 1):
+    """Click 'More Results' button to load additional results on DuckDuckGo."""
+    for _ in range(times):
+        more_button = page.locator("button#more-results")
+        if await more_button.count() > 0:
+            await more_button.scroll_into_view_if_needed()
+            await more_button.click()
+            await asyncio.sleep(1.5)
+        else:
+            break
 
 async def get_instagram_reels(
     query: str,
@@ -100,31 +78,36 @@ async def get_instagram_reels(
     existing_links = existing_links or set()
     all_urls = set()
     reels = []
+    loads_done = start_page - 1  # Track how many times we've loaded more results
 
     async with async_playwright() as p:
         browser, page = await setup_browser(p)
         try:
-            await page.goto("https://www.bing.com", timeout=30000)
-            await page.wait_for_selector("textarea#sb_form_q", timeout=10000)
+            await page.goto("https://duckduckgo.com", timeout=30000)
+            await page.wait_for_selector("input[name='q']", timeout=10000)
             search_query = f"site:instagram.com/reel {query}"
             await type_search_query(page, search_query)
-            await page.wait_for_selector("li.b_algo", timeout=10000)
 
-            current_page = await go_to_page(page, start_page, 1)
-            pages_processed = 0
+            # Wait for results to load
+            await page.wait_for_selector("article[data-testid='result']", timeout=15000)
 
-            while len(all_urls) < max_links and pages_processed < max_pages:
-                result_links = await page.query_selector_all("li.b_algo a")
+            # Load more results to get to start_page position
+            if loads_done > 0:
+                await load_more_results(page, loads_done)
+
+            loads_processed = 0
+
+            while len(all_urls) < max_links and loads_processed < max_pages:
+                # Extract links from results
+                result_links = await page.query_selector_all("article[data-testid='result'] a[href*='instagram.com/reel']")
                 page_urls = set()
+
                 for a in result_links:
                     href = await a.get_attribute("href")
-                    if href:
-                        if "bing.com/ck/a" in href:
-                            decoded = decode_bing_url(href)
-                            if "instagram.com/reel/" in decoded:
-                                page_urls.add(decoded.split('?')[0])
-                        elif "instagram.com/reel/" in href:
-                            page_urls.add(href.split('?')[0])
+                    if href and "instagram.com/reel/" in href:
+                        # DuckDuckGo provides direct URLs, no decoding needed
+                        clean_url = href.split('?')[0]
+                        page_urls.add(clean_url)
 
                 new_urls = page_urls - all_urls - existing_links
                 all_urls.update(new_urls)
@@ -132,12 +115,10 @@ async def get_instagram_reels(
                 if len(all_urls) >= max_links:
                     break
 
-                pages_processed += 1
-                if pages_processed < max_pages:
-                    new_page = await go_to_page(page, current_page + 1, current_page)
-                    if new_page == current_page:
-                        break
-                    current_page = new_page
+                loads_processed += 1
+                if loads_processed < max_pages:
+                    await load_more_results(page, 1)
+                    await asyncio.sleep(0.5)
 
             final_urls = list(all_urls)[:max_links]
             if final_urls:
@@ -147,4 +128,11 @@ async def get_instagram_reels(
         finally:
             await browser.close()
 
-    return reels, current_page
+    return reels, loads_done + loads_processed
+
+if __name__ == "__main__":
+    reels, page = asyncio.run(
+        get_instagram_reels("best cafes in Paris", "Paris", "cafes")
+    )
+    for r in reels:
+        print(r)
