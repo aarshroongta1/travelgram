@@ -6,12 +6,12 @@ from app.schemas.reel import NewReel
 
 
 async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
-    """Search DuckDuckGo for Instagram reel URLs."""
+    """Search DuckDuckGo for Instagram reel URLs with scrolling for more results."""
     urls = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=False,
+            headless=True,
             args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
         )
         context = await browser.new_context(
@@ -24,23 +24,42 @@ async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
             await page.goto("https://duckduckgo.com", timeout=15000)
             await page.fill("input[name='q']", query)
             await page.keyboard.press("Enter")
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
 
-            links = await page.query_selector_all("a")
-            for link in links:
-                href = await link.get_attribute("href")
-                if href and "instagram.com/reel/" in href:
-                    clean_url = href.split('?')[0]
-                    if clean_url not in urls:
-                        urls.append(clean_url)
-                        if len(urls) >= max_results:
-                            break
+            # Scroll and collect results multiple times to get more links
+            max_scrolls = 5
+            for scroll_attempt in range(max_scrolls):
+                # Extract links from current view
+                links = await page.query_selector_all("a")
+                for link in links:
+                    href = await link.get_attribute("href")
+                    if href and "instagram.com/reel/" in href:
+                        clean_url = href.split('?')[0]
+                        if clean_url not in urls:
+                            urls.append(clean_url)
+
+                if len(urls) >= max_results:
+                    break
+
+                # Scroll down to load more results
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await asyncio.sleep(1.5)
+
+                # Try clicking "More results" button if it exists
+                try:
+                    more_button = await page.query_selector("button.result--more__btn, a.result--more__btn")
+                    if more_button:
+                        await more_button.click()
+                        await asyncio.sleep(1.5)
+                except:
+                    pass
+
         except Exception as e:
             print(f"Search error: {e}")
         finally:
             await browser.close()
 
-    return urls
+    return urls[:max_results]
 
 
 async def get_instagram_reels(
