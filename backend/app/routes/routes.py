@@ -73,7 +73,7 @@ async def get_results(city: str, category: str, num: int = 6):
     return {category: saved}
 
 
-@router.get("/search/all", response_model=Dict[str, List[ReelOut]])
+@router.get("/search/all", response_model=List[ReelOut])
 async def get_all(city: str):
     query_map = {
         "cafes": "best cafes in ",
@@ -115,13 +115,21 @@ async def get_all(city: str):
         else:
             supabase.table("pages").insert({"city": city, "category": category, "start_page": next_page}).execute()
 
-        return category, saved
+        return saved
 
     # Run all categories in parallel
     tasks = [fetch_category(cat, prefix) for cat, prefix in query_map.items()]
     results = await asyncio.gather(*tasks)
 
-    return {category: saved for category, saved in results}
+    # Round-robin: 1st from each category, then 2nd from each, etc.
+    interleaved = []
+    max_len = max(len(r) for r in results) if results else 0
+    for i in range(max_len):
+        for category_reels in results:
+            if i < len(category_reels):
+                interleaved.append(category_reels[i])
+
+    return interleaved
 
 
 @router.post("/save")

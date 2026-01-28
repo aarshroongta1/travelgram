@@ -45,7 +45,7 @@ export const fetchAll = async (city: string, signal?: AbortSignal) => {
     params: { city },
     signal,
   });
-  return response.data as Record<string, Reel[]>;
+  return response.data as Reel[];
 };
 
 export const saveReel = async (reelId: number) => {

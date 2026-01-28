@@ -40,17 +40,23 @@ function ReelsPage({ city, data }: Props) {
       setLoading(true);
       try {
         if (activeCategory === "all") {
-          const newReelsMap = await fetchAll(city, controller.signal);
+          const newReels = await fetchAll(city, controller.signal);
           setReelsByCategory((prev) => {
             const updated = { ...prev };
 
-            for (const cat of Object.keys(newReelsMap)) {
-              const existing = prev[cat] ?? [];
-              const fresh = newReelsMap[cat] ?? [];
-              updated[cat] = [...existing, ...fresh];
+            // Group new reels by category
+            for (const reel of newReels) {
+              const cat = reel.category;
+              const existing = updated[cat] ?? [];
+              if (!existing.some((r) => r.id === reel.id)) {
+                updated[cat] = [...existing, reel];
+              }
             }
 
-            updated["all"] = Object.values(updated).flat();
+            // Update "all" with round-robin order from backend
+            const existingIds = new Set((prev["all"] ?? []).map((r) => r.id));
+            const fresh = newReels.filter((r) => !existingIds.has(r.id));
+            updated["all"] = [...(prev["all"] ?? []), ...fresh];
 
             return updated;
           });
@@ -90,14 +96,22 @@ function ReelsPage({ city, data }: Props) {
           setLoading(true);
           try {
             if (activeCategory === "all") {
-              const newReelsMap = await fetchAll(city);
+              const newReels = await fetchAll(city);
               setReelsByCategory((prev) => {
                 const updated = { ...prev };
-                for (const cat of Object.keys(newReelsMap)) {
-                  const existing = prev[cat] ?? [];
-                  updated[cat] = [...existing, ...newReelsMap[cat]];
+
+                for (const reel of newReels) {
+                  const cat = reel.category;
+                  const existing = updated[cat] ?? [];
+                  if (!existing.some((r) => r.id === reel.id)) {
+                    updated[cat] = [...existing, reel];
+                  }
                 }
-                updated["all"] = Object.values(updated).flat();
+
+                const existingIds = new Set((prev["all"] ?? []).map((r) => r.id));
+                const fresh = newReels.filter((r) => !existingIds.has(r.id));
+                updated["all"] = [...(prev["all"] ?? []), ...fresh];
+
                 return updated;
               });
             } else {
