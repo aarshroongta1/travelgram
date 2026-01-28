@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.data import get_instagram_reels
 from app.schemas.reel import ReelOut
@@ -49,13 +50,19 @@ async def get_results(city: str, category: str, num: int = 6):
         query=query, city=city, category=category,
         existing_links=seen_links, start_page=start_page, max_links=num
     )
+    print(f"Found {len(new_reels)} new reels")
 
     # Save new reels
     saved = []
     for reel in new_reels:
-        response = supabase.table("reels").insert(reel.model_dump()).execute()
-        if response.data:
-            saved.extend(response.data)
+        print(f"Saving reel: {reel.url}")
+        try:
+            response = supabase.table("reels").insert(reel.model_dump()).execute()
+            print(f"Insert response: {response.data}")
+            if response.data:
+                saved.extend(response.data)
+        except Exception as e:
+            print(f"Insert error: {e}")
 
     # Update page tracking
     if page_response.data:
@@ -81,9 +88,7 @@ async def get_all(city: str):
         "adventure": "adventure in "
     }
 
-    ret = {}
-
-    for category, query_prefix in query_map.items():
+    async def fetch_category(category: str, query_prefix: str):
         page_response = supabase.table("pages").select("*").eq("city", city).eq("category", category).execute()
         start_page = page_response.data[0]["start_page"] if page_response.data else 1
 
@@ -93,23 +98,30 @@ async def get_all(city: str):
         search_query = query_prefix + city
         new_reels, next_page = await get_instagram_reels(
             query=search_query, city=city, category=category,
-            existing_links=seen_links, start_page=start_page, max_links=1
+            existing_links=seen_links, start_page=start_page, max_links=6
         )
 
         saved = []
         for reel in new_reels:
-            response = supabase.table("reels").insert(reel.model_dump()).execute()
-            if response.data:
-                saved.extend(response.data)
+            try:
+                response = supabase.table("reels").insert(reel.model_dump()).execute()
+                if response.data:
+                    saved.extend(response.data)
+            except Exception:
+                pass
 
         if page_response.data:
             supabase.table("pages").update({"start_page": next_page}).eq("city", city).eq("category", category).execute()
         else:
             supabase.table("pages").insert({"city": city, "category": category, "start_page": next_page}).execute()
 
-        ret[category] = saved
+        return category, saved
 
-    return ret
+    # Run all categories in parallel
+    tasks = [fetch_category(cat, prefix) for cat, prefix in query_map.items()]
+    results = await asyncio.gather(*tasks)
+
+    return {category: saved for category, saved in results}
 
 
 @router.post("/save")

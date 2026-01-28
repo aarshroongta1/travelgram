@@ -1,90 +1,47 @@
 import asyncio
 from playwright.async_api import async_playwright
-from typing import Set
+from typing import Set, List
 from app.services.metadata import main as get_data
 from app.schemas.reel import NewReel
 
-async def setup_browser(p):
-    browser = await p.chromium.launch(
-        headless=False,
-        args=[
-            '--no-sandbox',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-client-side-phishing-detection',
-            '--disable-default-apps',
-            '--disable-extensions',
-            '--disable-hang-monitor',
-            '--disable-popup-blocking',
-            '--disable-prompt-on-repost',
-            '--disable-sync',
-            '--disable-translate',
-            '--metrics-recording-only',
-            '--safebrowsing-disable-auto-update',
-            '--disable-infobars',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--window-size=1920,1080',
-        ]
-    )
 
-    context = await browser.new_context(
-        viewport={'width': 1920, 'height': 1080},
-        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        extra_http_headers={
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'max-age=0',
-            'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
-        }
-    )
-    page = await context.new_page()
+async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
+    """Search DuckDuckGo for Instagram reel URLs."""
+    urls = []
 
-    # Comprehensive anti-detection script
-    await page.add_init_script("""
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        window.chrome = { runtime: {} };
-        Object.defineProperty(navigator, 'permissions', {
-            get: () => ({
-                query: () => Promise.resolve({ state: 'granted' })
-            })
-        });
-    """)
-    return browser, page
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=False,
+            args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        )
+        context = await browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        )
+        page = await context.new_page()
 
+        try:
+            await page.goto("https://duckduckgo.com", timeout=15000)
+            await page.fill("input[name='q']", query)
+            await page.keyboard.press("Enter")
+            await asyncio.sleep(3)
 
-async def type_search_query(page, text):
-    element = page.locator("input[name='q']")
-    await element.click()
-    for char in text:
-        await element.type(char)
-    await page.keyboard.press("Enter")
-    await asyncio.sleep(1)
+            links = await page.query_selector_all("a")
+            for link in links:
+                href = await link.get_attribute("href")
+                if href and "instagram.com/reel/" in href:
+                    clean_url = href.split('?')[0]
+                    if clean_url not in urls:
+                        urls.append(clean_url)
+                        if len(urls) >= max_results:
+                            break
+        except Exception as e:
+            print(f"Search error: {e}")
+        finally:
+            await browser.close()
 
-async def load_more_results(page, times: int = 1):
-    """Click 'More Results' button to load additional results on DuckDuckGo."""
-    for _ in range(times):
-        more_button = page.locator("button#more-results")
-        if await more_button.count() > 0:
-            await more_button.scroll_into_view_if_needed()
-            await more_button.click()
-            await asyncio.sleep(1.5)
-        else:
-            break
+    return urls
+
 
 async def get_instagram_reels(
     query: str,
@@ -96,59 +53,24 @@ async def get_instagram_reels(
     max_pages: int = 2
 ):
     existing_links = existing_links or set()
-    all_urls = set()
+
+    search_query = f"site:instagram.com/reel {query}"
+    print(f"Searching: {search_query}")
+
+    all_urls = await search_duckduckgo(search_query, max_results=max_links + len(existing_links) + 10)
+    print(f"Found {len(all_urls)} URLs from search")
+
+    new_urls = [url for url in all_urls if url not in existing_links][:max_links]
+    print(f"New URLs after filtering: {len(new_urls)}")
+
     reels = []
-    loads_done = start_page - 1  # Track how many times we've loaded more results
+    if new_urls:
+        results = await get_data(city=city, category=category, urls=new_urls)
+        print(f"Metadata results: {len(results)}")
+        reels = [NewReel(**r) for r in results if r is not None]
 
-    async with async_playwright() as p:
-        browser, page = await setup_browser(p)
-        try:
-            await page.goto("https://duckduckgo.com", timeout=30000)
-            await page.wait_for_selector("input[name='q']", timeout=10000)
-            search_query = f"site:instagram.com/reel {query}"
-            await type_search_query(page, search_query)
+    return reels, start_page
 
-            # Wait for results to load
-            await page.wait_for_selector("article[data-testid='result']", timeout=15000)
-
-            # Load more results to get to start_page position
-            if loads_done > 0:
-                await load_more_results(page, loads_done)
-
-            loads_processed = 0
-
-            while len(all_urls) < max_links and loads_processed < max_pages:
-                # Extract links from results
-                result_links = await page.query_selector_all("article[data-testid='result'] a[href*='instagram.com/reel']")
-                page_urls = set()
-
-                for a in result_links:
-                    href = await a.get_attribute("href")
-                    if href and "instagram.com/reel/" in href:
-                        # DuckDuckGo provides direct URLs, no decoding needed
-                        clean_url = href.split('?')[0]
-                        page_urls.add(clean_url)
-
-                new_urls = page_urls - all_urls - existing_links
-                all_urls.update(new_urls)
-
-                if len(all_urls) >= max_links:
-                    break
-
-                loads_processed += 1
-                if loads_processed < max_pages:
-                    await load_more_results(page, 1)
-                    await asyncio.sleep(0.5)
-
-            final_urls = list(all_urls)[:max_links]
-            if final_urls:
-                results = await get_data(city=city, category=category, urls=final_urls)
-                reels = [NewReel(**r) for r in results if r is not None]
-
-        finally:
-            await browser.close()
-
-    return reels, loads_done + loads_processed
 
 if __name__ == "__main__":
     reels, page = asyncio.run(

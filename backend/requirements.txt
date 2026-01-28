@@ -6,6 +6,7 @@ pydantic
 python-dotenv
 requests
 beautifulsoup4
+duckduckgo-search
 supabase
 PyJWT
 python-multipart
