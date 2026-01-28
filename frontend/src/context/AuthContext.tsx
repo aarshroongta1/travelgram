@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  email?: string;
-  loading: boolean; // Added
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -14,52 +17,62 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [email, setEmail] = useState<string | undefined>(undefined);
-  const [loading, setLoading] = useState(true); // Tracks auth check status
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await axios.get("/api/me", {
-          withCredentials: true,
-        });
-        setIsAuthenticated(true);
-        setEmail(response.data.email);
-      } catch {
-        setIsAuthenticated(false);
-        setEmail(undefined);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-    checkAuth();
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const formData = new URLSearchParams();
-    formData.append("username", email);
-    formData.append("password", password);
-
-    await axios.post("/api/login", formData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      withCredentials: true,
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+    if (error) throw error;
+  };
 
-    setIsAuthenticated(true);
-    setEmail(email);
+  const signup = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    if (error) throw error;
   };
 
   const logout = async () => {
-    await axios.post("/api/logout", {}, { withCredentials: true });
-    setIsAuthenticated(false);
-    setEmail(undefined);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, email, loading, login, logout }} // ✅ Include loading
+      value={{
+        isAuthenticated: !!session,
+        user,
+        session,
+        loading,
+        login,
+        signup,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>
