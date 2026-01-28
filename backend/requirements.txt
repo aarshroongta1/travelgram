@@ -6,7 +6,6 @@ pydantic
 python-dotenv
 requests
 beautifulsoup4
-sqlalchemy
-asyncpg
+supabase
 PyJWT
 python-multipart
