@@ -1,4 +1,5 @@
 import axios from "axios";
+import { supabase } from "../lib/supabase";
 
 export interface Reel {
   id: number;
@@ -9,6 +10,17 @@ export interface Reel {
   username: string;
   caption: string;
 }
+
+// Helper to get auth headers
+const getAuthHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error("Not authenticated");
+  }
+  return {
+    Authorization: `Bearer ${session.access_token}`,
+  };
+};
 
 export const getExisting = async (city: string) => {
   const response = await axios.get("/api/existing/" + city);
@@ -37,43 +49,47 @@ export const fetchAll = async (city: string, signal?: AbortSignal) => {
 };
 
 export const saveReel = async (reelId: number) => {
+  const headers = await getAuthHeaders();
   await axios.post(
     "/api/save",
     {},
     {
       params: { reel_id: reelId },
-      withCredentials: true,
+      headers,
     }
   );
   return;
 };
 
 export const unsaveReel = async (reelId: number) => {
+  const headers = await getAuthHeaders();
   await axios.post(
     "/api/unsave",
     {},
     {
       params: { reel_id: reelId },
-      withCredentials: true,
+      headers,
     }
   );
   return;
 };
 
 export const getSavedReels = async () => {
+  const headers = await getAuthHeaders();
   const res = await axios.get("/api/saved", {
-    withCredentials: true,
+    headers,
   });
   return res.data as Reel[];
 };
 
-export const isSaved = async(reelId: number) => {
+export const isSaved = async (reelId: number) => {
+  const headers = await getAuthHeaders();
   const res = await axios.get("/api/check-saved", {
-    params: {reel_id: reelId},
-    withCredentials: true
-  })
-  return Boolean(res.data.saved)
-}
+    params: { reel_id: reelId },
+    headers,
+  });
+  return Boolean(res.data.saved);
+};
 
 export const getSavedReelsByCity = async (): Promise<Record<string, Reel[]>> => {
   const all = await getSavedReels();
