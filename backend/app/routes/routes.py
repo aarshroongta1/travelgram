@@ -21,17 +21,18 @@ async def get_existing(city: str):
 
 @router.get("/search", response_model=Dict[str, List[ReelOut]])
 async def get_results(city: str, category: str, num: int = 6):
+    # Queries optimized for finding Instagram travel reels
     query_map = {
-        "cafes": "best cafes in ",
-        "restaurants": "best restaurants in ",
-        "stay": "best hotels in ",
-        "things to do": "best attractions/things to do in ",
-        "shopping": "best shopping places in ",
-        "nightlife": "best nightlife clubs in ",
-        "bar": "best bars in ",
-        "festivals": "festivals in ",
-        "art and culture": "art and culture in ",
-        "adventure": "adventure in "
+        "cafes": "cafes coffee spots ",
+        "restaurants": "food restaurants where to eat ",
+        "stay": "hotels where to stay accommodation ",
+        "things to do": "things to do places to visit travel guide ",
+        "shopping": "shopping markets souvenirs ",
+        "nightlife": "nightlife clubs party ",
+        "bar": "bars rooftop drinks ",
+        "festivals": "festivals events ",
+        "art and culture": "art culture museums ",
+        "adventure": "adventure activities outdoor "
     }
 
     category = category.lower()
@@ -75,17 +76,18 @@ async def get_results(city: str, category: str, num: int = 6):
 
 @router.get("/search/all", response_model=List[ReelOut])
 async def get_all(city: str):
+    # Queries optimized for finding Instagram travel reels
     query_map = {
-        "cafes": "best cafes in ",
-        "restaurants": "best restaurants in ",
-        "stay": "best hotels in ",
-        "things to do": "best attractions/things to do in ",
-        "shopping": "best shopping places in ",
-        "nightlife": "best nightlife clubs in ",
-        "bar": "best bars in ",
-        "festivals": "festivals in ",
-        "art and culture": "art and culture in ",
-        "adventure": "adventure in "
+        "cafes": "cafes coffee spots ",
+        "restaurants": "food restaurants where to eat ",
+        "stay": "hotels where to stay accommodation ",
+        "things to do": "things to do places to visit travel guide ",
+        "shopping": "shopping markets souvenirs ",
+        "nightlife": "nightlife clubs party ",
+        "bar": "bars rooftop drinks ",
+        "festivals": "festivals events ",
+        "art and culture": "art culture museums ",
+        "adventure": "adventure activities outdoor "
     }
 
     async def fetch_category(category: str, query_prefix: str):

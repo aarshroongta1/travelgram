@@ -1,7 +1,10 @@
 import asyncio
+import logging
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 import re
+
+logger = logging.getLogger(__name__)
 
 
 async def get_metadata(context, url, city, category, semaphore):
@@ -20,26 +23,60 @@ async def get_metadata(context, url, city, category, semaphore):
             image = soup.find("meta", property="og:image")
 
             if not content or not image:
+                logger.warning(f"Missing meta tags for {url}: content={bool(content)}, image={bool(image)}")
                 return None
 
             description = content["content"]
             thumbnail = image["content"]
 
+            username = None
+            caption = None
+
+            # Pattern 1: Standard format with likes/comments prefix
+            # "1,234 likes, 56 comments - username on Instagram: "caption""
             match = re.search(
-                r"(?:[\d,.KM]+\s+likes?,\s+[\d,.KM]+\s+comments?\s+-\s+)?(.+?)\s+on\s+.+?:\s*\"(.+?)\"",
+                r"(?:[\d,.KM]+\s+likes?,\s+[\d,.KM]+\s+comments?\s+-\s+)?(.+?)\s+on\s+.+?:\s*[\""](.+?)[\""]",
                 description,
                 re.DOTALL
             )
 
-            if not match:
-                return None
+            if match:
+                username = match.group(1).strip()
+                caption = match.group(2).strip()
 
-            username = match.group(1).strip() if match.group(1) else "unknown"
-            caption = match.group(2).strip() if match.group(2) else ""
+            # Pattern 2: Without quotes around caption
+            # "username on Instagram: caption text here"
+            if not username or not caption:
+                match = re.search(
+                    r"(?:[\d,.KM]+\s+likes?,\s+[\d,.KM]+\s+comments?\s+-\s+)?(.+?)\s+on\s+(?:Instagram|Reels?):\s*(.+)",
+                    description,
+                    re.DOTALL
+                )
+                if match:
+                    username = match.group(1).strip()
+                    caption = match.group(2).strip()
+
+            # Pattern 3: Just extract any username-like pattern and use rest as caption
+            # Fallback for unusual formats
+            if not username or not caption:
+                match = re.search(r"@?(\w+)[\s:]+(.{10,})", description)
+                if match:
+                    username = match.group(1).strip()
+                    caption = match.group(2).strip()
+
+            # Pattern 4: Last resort - use first part as username, rest as caption
+            if not username or not caption:
+                parts = description.split(":", 1)
+                if len(parts) == 2:
+                    username = parts[0].strip().split()[-1]  # Last word before colon
+                    caption = parts[1].strip().strip('"').strip('"').strip('"')
 
             if not all([username, caption, thumbnail]):
+                logger.warning(f"Failed to extract metadata for {url}: username={bool(username)}, caption={bool(caption)}")
+                logger.debug(f"Raw description: {description[:200]}...")
                 return None
 
+            logger.info(f"Successfully extracted metadata for {url}")
             return {
                 "url": url,
                 "city": city,
@@ -50,10 +87,12 @@ async def get_metadata(context, url, city, category, semaphore):
             }
 
         except Exception as e:
+            logger.error(f"Exception fetching metadata for {url}: {e}")
             return None
 
 
 async def main(city, category, urls):
+    logger.info(f"Fetching metadata for {len(urls)} URLs: {city}/{category}")
     results = []
     semaphore = asyncio.Semaphore(5)
 
@@ -74,4 +113,6 @@ async def main(city, category, urls):
         results = await asyncio.gather(*tasks)
         await browser.close()
 
-    return [r for r in results if r is not None]
+    valid_results = [r for r in results if r is not None]
+    logger.info(f"Metadata extraction complete: {len(valid_results)}/{len(urls)} successful")
+    return valid_results

@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from playwright.async_api import async_playwright
 from typing import Set, List
 from app.services.metadata import main as get_data
 from app.schemas.reel import NewReel
+
+logger = logging.getLogger(__name__)
 
 
 async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
@@ -28,7 +31,8 @@ async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
 
             # Scroll and collect results multiple times to get more links
             max_scrolls = 5
-            for scroll_attempt in range(max_scrolls):
+            for scroll_num in range(max_scrolls):
+                logger.debug(f"Scroll {scroll_num + 1}/{max_scrolls}, found {len(urls)} URLs so far")
                 # Extract links from current view
                 links = await page.query_selector_all("a")
                 for link in links:
@@ -55,7 +59,7 @@ async def search_duckduckgo(query: str, max_results: int = 20) -> List[str]:
                     pass
 
         except Exception as e:
-            print(f"Search error: {e}")
+            logger.error(f"Search error: {e}")
         finally:
             await browser.close()
 
@@ -73,21 +77,25 @@ async def get_instagram_reels(
 ):
     existing_links = existing_links or set()
 
-    search_query = f"site:instagram.com/reel {query}"
-    print(f"Searching: {search_query}")
+    # Add travel/reel keywords to improve Instagram content discovery
+    search_query = f"site:instagram.com/reel {query} travel reel"
+    logger.info(f"Searching: {search_query}")
 
     all_urls = await search_duckduckgo(search_query, max_results=max_links + len(existing_links) + 10)
-    print(f"Found {len(all_urls)} URLs from search")
+    logger.info(f"Found {len(all_urls)} URLs from search")
 
     new_urls = [url for url in all_urls if url not in existing_links][:max_links]
-    print(f"New URLs after filtering: {len(new_urls)}")
+    logger.info(f"New URLs after filtering: {len(new_urls)}")
 
     reels = []
     if new_urls:
         results = await get_data(city=city, category=category, urls=new_urls)
-        print(f"Metadata results: {len(results)}")
+        logger.info(f"Metadata results: {len(results)}")
         reels = [NewReel(**r) for r in results if r is not None]
+    else:
+        logger.warning(f"No new URLs found for {city}/{category}")
 
+    logger.info(f"Final reels for {city}/{category}: {len(reels)}")
     return reels, start_page
 
 
